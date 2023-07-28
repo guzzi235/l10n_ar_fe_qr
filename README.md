@@ -1,3 +1,3 @@
-# Localización Argentina - FE QR
+# QR para factura electronica Argentina
 
-QR Code for AFIP FE on Odoo 13 Invoice - Localización Argentina
+QR de AFIP para la factura electronica de la localizacion argentina ADHOC en odoo v8.0 

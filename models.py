@@ -1,12 +1,37 @@
-from openerp import fields, models
+from openerp import api, fields, models
 import base64
-import requests
+from cStringIO import StringIO as StringIO
 from collections import OrderedDict
 import json
+from qrcode import QRCode, constants
+from cStringIO import StringIO as StringIO
+
 
 class AccountInvoice(models.Model):
     _inherit = 'account.invoice'
 
+    # 1. Modificar el campo image_qr a un campo binario
+    image_qr = fields.Binary('QR Imagen')
+
+    def _generate_qr_image(self, qr_content):
+        qr = QRCode(
+            version=1,
+            error_correction=constants.ERROR_CORRECT_L,
+            box_size=3,
+            border=4,
+        )
+        qr.add_data(qr_content)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+        output = StringIO()
+        img.save(output, format='PNG')
+        png_image = output.getvalue()
+        output.close()
+
+        return png_image
+
+    @api.multi
     def _compute_json_qr(self):
         for rec in self:
             dict_invoice = OrderedDict()  # Usar OrderedDict en lugar de {}
@@ -32,15 +57,16 @@ class AccountInvoice(models.Model):
                     dict_invoice = 'ERROR'
                     pass
                 res = json.dumps(dict_invoice, separators=(',', ':'))
-            else:
+            else:    
                 res = 'N/A'
             rec.json_qr = res
             enc = res.encode('utf-8')
-            b64 = base64.encodestring(enc).decode('utf-8').strip()
+            b64 = base64.b64encode(enc).decode('utf-8').strip()
             rec.texto_modificado_qr = 'https://www.afip.gob.ar/fe/qr/?p=' + str(b64)
-            rec.image_qr = base64.b64encode(requests.get(self.env['ir.config_parameter'].get_param('web.base.url') + '/report/barcode/?type=QR&value=' + 'https://www.afip.gob.ar/fe/qr/?p=' + str(b64) + '&width=180&height=180').content)
-            print(rec.image_qr)
+
+            rec.image_qr = base64.b64encode(rec._generate_qr_image(rec.texto_modificado_qr))
+            
+
     json_qr = fields.Char("JSON QR AFIP", compute=_compute_json_qr)
     texto_modificado_qr = fields.Char('Texto Modificado QR', compute=_compute_json_qr)
     image_qr = fields.Binary('QR Imagen', compute=_compute_json_qr)
-            
